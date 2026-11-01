@@ -1,0 +1,49 @@
+
+name: Build Lingleaf IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: ./.github/actions/use-xcode-26
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build for physical iPad
+        run: |
+          xcodebuild \
+            -project Lingleaf.xcodeproj \
+            -scheme Lingleaf \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Lingleaf.app Payload/
+          zip -qry Lingleaf-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lingleaf-unsigned-IPA
+          path: Lingleaf-unsigned.ipa
+          if-no-files-found: error
